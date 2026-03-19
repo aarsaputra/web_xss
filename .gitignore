@@ -1,0 +1,13 @@
+# Log files
+captured.json
+database_komen.json
+
+# System files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# PHP
+composer.lock
+vendor/
