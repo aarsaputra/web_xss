@@ -16,6 +16,11 @@ if (!file_exists($report_file)) {
 }
 
 // Security Level Management
+if (!isset($_SESSION['user'])) {
+    header("Location: login.php");
+    exit;
+}
+
 if (!isset($_SESSION['sec_level'])) {
     $_SESSION['sec_level'] = 'Low';
 }

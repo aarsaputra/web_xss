@@ -1,0 +1,23 @@
+[
+    {
+        "id": "u_admin",
+        "username": "Administrator",
+        "password": "password123",
+        "role": "admin",
+        "status": "idle"
+    },
+    {
+        "id": "u_guest1",
+        "username": "Guest_309",
+        "password": "guest",
+        "role": "guest",
+        "status": "offline"
+    },
+    {
+        "id": "u_guest2",
+        "username": "Guest_7815",
+        "password": "guest",
+        "role": "guest",
+        "status": "online"
+    }
+]

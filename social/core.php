@@ -1,6 +1,12 @@
 <?php
 session_start();
 
+// Require authentication
+if (!isset($_SESSION['user'])) {
+    header("Location: ../login.php");
+    exit;
+}
+
 // Inherit security level, default to Low
 if (isset($_GET['set_level'])) {
     $allowed_levels = ['Low', 'Medium', 'High'];
@@ -15,11 +21,11 @@ if (!isset($_SESSION['sec_level'])) {
     $_SESSION['sec_level'] = 'Low'; 
 }
 
-// Generate an anonymous identity if not logged in via the main portal
-if (!isset($_SESSION['user'])) { 
-    $_SESSION['user'] = 'Guest_' . rand(1000, 9999); 
-    $_SESSION['role'] = 'guest'; 
-    $_SESSION['username_id'] = uniqid();
+// User Tracking for Active Sidebar
+function get_active_users() {
+    $db_users = '../db_users.json';
+    if (!file_exists($db_users)) return [];
+    return json_decode(file_get_contents($db_users), true) ?: [];
 }
 
 function xss_filter($data) {

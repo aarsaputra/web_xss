@@ -337,20 +337,19 @@ $search_query = isset($_GET['q']) ? $_GET['q'] : '';
         <!-- Right Sidebar -->
         <aside class="right-sidebar">
             <div class="widget-box">
-                <h4 class="widget-title">Active Connections (<?= rand(3, 10) ?>)</h4>
-                <div style="display:flex; align-items:center; gap: 10px; margin-bottom:15px;">
-                    <div style="width:10px; height:10px; background:#00f5d4; border-radius:50%; box-shadow:0 0 5px #00f5d4;"></div>
-                    <span><strong style="color:var(--primary);"><?= $_SESSION['user'] ?></strong> (You)</span>
+                <h4 class="widget-title">Active Connections</h4>
+                <?php 
+                $usr_list = get_active_users();
+                foreach($usr_list as $u):
+                    $dot_color = $u['status'] === 'online' ? '#00f5d4' : ($u['status'] === 'idle' ? '#ff0055' : '#8892b0');
+                    $is_me = ($u['username'] === $_SESSION['user']) ? ' (You)' : '';
+                    $u_name = $is_me ? "<strong style='color:var(--primary);'>{$u['username']}</strong>$is_me" : "<span>{$u['username']}</span>";
+                ?>
+                <div style="display:flex; align-items:center; gap: 10px; margin-bottom:15px; <?= $u['status'] === 'offline' ? 'color:var(--text-muted);' : '' ?>">
+                    <div style="width:10px; height:10px; background:<?= $dot_color ?>; border-radius:50%; <?= $u['status'] === 'online' ? 'box-shadow:0 0 5px #00f5d4;' : '' ?>"></div>
+                    <?= $u_name ?> <span style="font-size:0.75rem; color:var(--text-muted);">(<?= ucfirst($u['status']) ?>)</span>
                 </div>
-                <!-- Fake users -->
-                <div style="display:flex; align-items:center; gap: 10px; margin-bottom:15px; color:var(--text-muted);">
-                    <div style="width:10px; height:10px; background:#ff0055; border-radius:50%;"></div>
-                    <span>Administrator (Idle)</span>
-                </div>
-                <div style="display:flex; align-items:center; gap: 10px; color:var(--text-muted);">
-                    <div style="width:10px; height:10px; background:#8892b0; border-radius:50%;"></div>
-                    <span>Guest_<?= rand(100,999) ?> (Offline)</span>
-                </div>
+                <?php endforeach; ?>
             </div>
             <div class="widget-box">
                 <h4 class="widget-title">Network Info</h4>
