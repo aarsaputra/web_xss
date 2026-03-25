@@ -238,6 +238,12 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     <li onclick="location.href='captured.php'" class="sidebar-item">
                         <i class="fas fa-terminal"></i> Cookie Stealer
                     </li>
+                    
+                    <hr style="border:0; border-top:1px dashed var(--primary); margin: 1rem 0;">
+                    
+                    <li onclick="location.href='social/'" class="sidebar-item" style="border: 1px solid var(--primary); text-align:center; background: rgba(0,245,212,0.1);">
+                        <i class="fas fa-globe"></i> Enter Social Lab
+                    </li>
                 </ul>
             </aside>
 

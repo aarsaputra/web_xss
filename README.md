@@ -82,12 +82,13 @@ The lab now features selectable Security Levels (LOW, MEDIUM, HIGH) to simulate 
 - **Medium**: Blocks common tags like `<script>`. Requires bypass techniques.
 - **High**: Strict HTML entity encoding. Completely secure.
 
-*Refer to  for specific bypass payloads.*
+*Refer to `payload_guide.md` for specific bypass payloads.*
 
-## 🛡️ Phase 2: Security Levels
-The lab now features selectable Security Levels (LOW, MEDIUM, HIGH) to simulate Web Application Firewalls (WAF) and proper output sanitization.
-- **Low**: No filters. 100% vulnerable.
-- **Medium**: Blocks common tags like `<script>`. Requires bypass techniques.
-- **High**: Strict HTML entity encoding. Completely secure.
-
-*Refer to  for specific bypass payloads.*
+## 🌐 Phase 3: Social Media Simulation (SOCialNet)
+The lab now includes a dedicated "Real-World" simulation path located at `/social/`. 
+This standalone environment replicates a Facebook-style timeline, heavily integrated with:
+- **Stored XSS**: Nested comment streams and broadcasting posts.
+- **Reflected XSS**: Searching for posts/friends.
+- **DOM XSS**: Hash-based client-side profile routing.
+- **Blind XSS**: Contact/Report Abuse forms that execute silently in the Admin Terminal.
+- **Hacker Vision**: A smart UI toggle to visually outline vulnerable elements on the page without breaking the social media aesthetics.
