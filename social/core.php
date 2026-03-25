@@ -58,3 +58,23 @@ function write_db($file, $data) {
 // File Paths
 $db_posts = 'db_posts.json';
 $db_comments = 'db_comments.json';
+$db_notifications = 'db_notifications.json';
+
+// Notifications Core Logic
+function add_notification($target_user, $type, $actor, $message, $link) {
+    global $db_notifications;
+    $notifs = read_db($db_notifications);
+    $new_notif = [
+        'id' => uniqid('notif_'),
+        'target_user' => $target_user,
+        'type' => $type, // 'like', 'comment', 'post'
+        'actor' => $actor,
+        'message' => $message,
+        'link' => $link,
+        'time' => date("Y-m-d H:i"),
+        'read' => false
+    ];
+    array_unshift($notifs, $new_notif);
+    write_db($db_notifications, $notifs);
+}
+

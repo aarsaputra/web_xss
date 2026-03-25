@@ -16,6 +16,10 @@ if (isset($_POST['create_post'])) {
         ];
         array_unshift($posts, $new_post);
         write_db($db_posts, $posts);
+        
+        // Notify all users
+        add_notification('all', 'post', $_SESSION['user'], "mempublikasikan transmisi baru.", "?view=feed");
+        
         header("Location: index.php");
         exit;
     }
@@ -59,6 +63,15 @@ if (isset($_POST['create_comment'])) {
         ];
         $comments[] = $new_comment;
         write_db($db_comments, $comments);
+        
+        // Notify Post Author
+        $posts_list = read_db($db_posts);
+        $t_user = '';
+        foreach($posts_list as $pl) { if($pl['id'] == $post_id) { $t_user = $pl['author']; break; } }
+        if ($t_user !== '' && $t_user !== $_SESSION['user']) {
+            add_notification($t_user, 'comment', $_SESSION['user'], "meninggalkan balasan di postingan Anda.", "?view=feed");
+        }
+        
         header("Location: index.php");
         exit;
     }
@@ -79,6 +92,25 @@ if (isset($_GET['delete_comment'])) {
     header("Location: index.php");
     exit;
 }
+
+// Handle Like Action
+if (isset($_GET['like_post'])) {
+    $id = $_GET['like_post'];
+    $posts_list = read_db($db_posts);
+    foreach($posts_list as $pl) { 
+        if($pl['id'] == $id && $pl['author'] !== $_SESSION['user']) { 
+            // Avoid duplicate like logging logically here if we had a full DB, 
+            // but for a vulnerable lab this simple trigger is perfect.
+            add_notification($pl['author'], 'like', $_SESSION['user'], "menyukai postingan Anda.", "?view=feed");
+            break;
+        } 
+    }
+    header("Location: index.php");
+    exit;
+}
+
+// View Controller
+$view = isset($_GET['view']) ? $_GET['view'] : 'feed';
 
 // Search Query (Reflected XSS)
 $search_query = isset($_GET['q']) ? $_GET['q'] : '';
@@ -130,9 +162,15 @@ $search_query = isset($_GET['q']) ? $_GET['q'] : '';
     <div class="social-wrapper">
         <!-- Left Sidebar -->
         <aside class="left-menu">
-            <a href="index.php" class="menu-item active"><i class="fas fa-home"></i> Beranda</a>
+            <a href="index.php?view=feed" class="menu-item <?= $view === 'feed' ? 'active' : '' ?>"><i class="fas fa-home"></i> Beranda</a>
             <a href="#profile=<?= urlencode($_SESSION['user']) ?>" class="menu-item vulnerable" data-vuln="DOM XSS (Hash Routing)"><i class="fas fa-user-astronaut"></i> Profil Saya</a>
-            <a href="index.php" class="menu-item"><i class="fas fa-bell"></i> Notifikasi</a>
+            <a href="index.php?view=notif" class="menu-item <?= $view === 'notif' ? 'active' : '' ?>">
+                <i class="fas fa-bell"></i> Notifikasi
+                <?php 
+                $my_notifs_count = count(array_filter(read_db($db_notifications), function($n){ return ($n['target_user'] === $_SESSION['user'] || $n['target_user'] === 'all'); }));
+                if ($my_notifs_count > 0) echo "<span style='background:var(--accent); color:white; border-radius:10px; padding:2px 8px; font-size:0.75rem; margin-left:10px; font-weight:bold;'>$my_notifs_count</span>";
+                ?>
+            </a>
             <hr style="border-color:var(--border); margin:1rem 0;">
             <a href="../index.php" class="menu-item" style="color:var(--text-muted)"><i class="fas fa-sign-out-alt"></i> Kembali ke Lab Dasar</a>
             <a href="../captured.php" target="_blank" class="menu-item" style="color:var(--accent)"><i class="fas fa-terminal"></i> Terminal Interceptor</a>
@@ -141,6 +179,39 @@ $search_query = isset($_GET['q']) ? $_GET['q'] : '';
         <!-- Center Feed -->
         <main class="feed-zone">
             
+            <?php if ($view === 'notif'): ?>
+                <!-- NOTIFICATIONS VIEW -->
+                <div class="create-post" style="padding-bottom:1rem;">
+                    <h3 style="color:var(--primary); margin-top:0; border-bottom:1px solid var(--border); padding-bottom:10px;"><i class="fas fa-bell"></i> Pusat Notifikasi</h3>
+                    
+                    <div style="margin-top:20px;">
+                        <?php 
+                        $notifs = read_db($db_notifications);
+                        $my_notifs = array_filter($notifs, function($n) { return $n['target_user'] === $_SESSION['user'] || $n['target_user'] === 'all'; });
+                        if (empty($my_notifs)) { echo "<p style='color:var(--text-muted); text-align:center; padding:2rem;'>Belum ada aktivitas di jaringan Anda.</p>"; }
+                        
+                        foreach ($my_notifs as $n):
+                            $icon = 'fa-bell'; $icon_color = 'var(--text-muted)';
+                            if ($n['type'] == 'like') { $icon = 'fa-heart'; $icon_color = '#ff0055'; }
+                            elseif ($n['type'] == 'comment') { $icon = 'fa-comment'; $icon_color = '#00f5d4'; }
+                            elseif ($n['type'] == 'post') { $icon = 'fa-satellite-dish'; $icon_color = 'orange'; }
+                        ?>
+                        <div class="vulnerable" data-vuln="Stored XSS (Notification Payload)" style="padding: 15px; border-bottom: 1px solid var(--border); display:flex; gap:15px; align-items:center; transition:0.2s;">
+                            <div style="width:40px; height:40px; background:rgba(255,255,255,0.05); border-radius:50%; display:flex; align-items:center; justify-content:center; color:<?= $icon_color ?>; font-size:1.2rem;">
+                                <i class="fas <?= $icon ?>"></i>
+                            </div>
+                            <div>
+                                <p style="margin:0; color:var(--text); line-height:1.4;">
+                                    <strong style="color:var(--primary)"><?= xss_filter($n['actor']) ?></strong> <?= xss_filter($n['message']) ?>
+                                </p>
+                                <span style="font-size:0.8rem; color:var(--text-muted);"><?= $n['time'] ?></span>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php else: ?>
+
             <!-- REFLECTED XSS TRIGGER -->
             <?php if (!empty($search_query)): ?>
             <div class="create-post vulnerable" data-vuln="Reflected XSS (Output)" style="padding: 1rem; margin-bottom: 2rem;">
@@ -198,7 +269,7 @@ $search_query = isset($_GET['q']) ? $_GET['q'] : '';
                         </div>
                         
                         <div class="post-footer">
-                            <button class="post-btn" onclick="this.style.color='#ff0055'; this.innerHTML='<i class=\'fas fa-heart\'></i> Liked';"><i class="far fa-heart"></i> Like</button>
+                            <a href="?like_post=<?= $post['id'] ?>" class="post-btn" style="text-decoration:none;"><i class="far fa-heart"></i> Like</a>
                             <button class="post-btn vulnerable" data-vuln="Stored XSS (Comment Area)" onclick="document.getElementById('comment-box-<?= $post['id'] ?>').style.display='block'; document.querySelector('#comment-box-<?= $post['id'] ?> input[name=comment_content]').focus();"><i class="far fa-comment-alt"></i> Comment</button>
                             <!-- BLIND XSS TRIGGER -->
                             <form method="POST" action="../index.php?page=contact" style="display:inline;">
@@ -255,6 +326,8 @@ $search_query = isset($_GET['q']) ? $_GET['q'] : '';
                     <?php endforeach; ?>
                 </div>
             </div>
+            
+            <?php endif; ?>
             
             <!-- DOM XSS Profile View Area -->
             <div id="dom-profile-view" style="display:none;" class="create-post vulnerable" data-vuln="DOM XSS Execution"></div>
