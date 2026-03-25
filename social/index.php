@@ -107,13 +107,15 @@ $search_query = isset($_GET['q']) ? $_GET['q'] : '';
             <!-- Inherited Security Level Dropdown -->
             <div class="nav-link dropdown" style="position:relative; cursor:pointer; padding:5px 10px; border:1px solid var(--border); border-radius:20px;">
                 <span style="color:var(--text-muted); font-size:0.8rem;">WAF Level: <strong style="color:var(--primary)"><?= $_SESSION['sec_level'] ?></strong></span>
-                <div class="dropdown-content" style="position:absolute; top:120%; right:0; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; display:none; flex-direction:column; min-width:120px; z-index:1001; overflow:hidden;">
+                <div class="dropdown-content" style="position:absolute; top:100%; right:0; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; display:none; flex-direction:column; min-width:120px; z-index:1001; overflow:hidden; margin-top: 5px;">
                     <a href="?set_level=Low" style="color:#00f5d4; padding:10px 15px; text-decoration:none; display:block; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.85rem;">Low (0% Filter)</a>
                     <a href="?set_level=Medium" style="color:orange; padding:10px 15px; text-decoration:none; display:block; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.85rem;">Medium (Tag Block)</a>
                     <a href="?set_level=High" style="color:#ff0055; padding:10px 15px; text-decoration:none; display:block; font-size:0.85rem;">High (Full Entity)</a>
                 </div>
             </div>
             <style>
+                /* Using a pseudo-element bridge to prevent hover gap issues */
+                .dropdown::after { content:''; position:absolute; top:100%; left:0; right:0; height:10px; }
                 .dropdown:hover .dropdown-content { display: flex !important; }
                 .dropdown-content a:hover { background: rgba(0,245,212,0.1); }
             </style>
