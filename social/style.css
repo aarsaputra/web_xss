@@ -229,6 +229,13 @@ body {
     box-shadow: 0 0 10px rgba(255, 0, 85, 0.3);
 }
 
+/* Fix for elements in the fixed top navbar so the tag isn't cut off by the top of the browser */
+.hacker-vision-active .social-nav .vulnerable::after {
+    top: 110%;
+    right: auto;
+    left: 10px;
+}
+
 /* Right Sidebar */
 .right-sidebar {
     position: sticky;
