@@ -104,7 +104,19 @@ $search_query = isset($_GET['q']) ? $_GET['q'] : '';
         </form>
 
         <div style="display:flex; align-items:center; gap: 1rem;">
-            <span style="color:var(--text-muted); font-size:0.8rem;">WAF Level: <strong style="color:var(--primary)"><?= $_SESSION['sec_level'] ?></strong></span>
+            <!-- Inherited Security Level Dropdown -->
+            <div class="nav-link dropdown" style="position:relative; cursor:pointer; padding:5px 10px; border:1px solid var(--border); border-radius:20px;">
+                <span style="color:var(--text-muted); font-size:0.8rem;">WAF Level: <strong style="color:var(--primary)"><?= $_SESSION['sec_level'] ?></strong></span>
+                <div class="dropdown-content" style="position:absolute; top:120%; right:0; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; display:none; flex-direction:column; min-width:120px; z-index:1001; overflow:hidden;">
+                    <a href="?set_level=Low" style="color:#00f5d4; padding:10px 15px; text-decoration:none; display:block; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.85rem;">Low (0% Filter)</a>
+                    <a href="?set_level=Medium" style="color:orange; padding:10px 15px; text-decoration:none; display:block; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.85rem;">Medium (Tag Block)</a>
+                    <a href="?set_level=High" style="color:#ff0055; padding:10px 15px; text-decoration:none; display:block; font-size:0.85rem;">High (Full Entity)</a>
+                </div>
+            </div>
+            <style>
+                .dropdown:hover .dropdown-content { display: flex !important; }
+                .dropdown-content a:hover { background: rgba(0,245,212,0.1); }
+            </style>
             
             <button onclick="toggleHackerVision()" class="btn btn-outline" id="hkv-btn" style="border-color:var(--accent); color:var(--accent);">
                 <i class="fas fa-eye"></i> Hacker Vision
@@ -184,8 +196,8 @@ $search_query = isset($_GET['q']) ? $_GET['q'] : '';
                         </div>
                         
                         <div class="post-footer">
-                            <button class="post-btn" onclick="alert('Feature in development. Try XSSing the post feature first!')"><i class="far fa-heart"></i> Like</button>
-                            <button class="post-btn vulnerable" data-vuln="Stored XSS (Comment Area)" onclick="document.getElementById('comment-box-<?= $post['id'] ?>').style.display='block';"><i class="far fa-comment-alt"></i> Comment</button>
+                            <button class="post-btn" onclick="this.style.color='#ff0055'; this.innerHTML='<i class=\'fas fa-heart\'></i> Liked';"><i class="far fa-heart"></i> Like</button>
+                            <button class="post-btn vulnerable" data-vuln="Stored XSS (Comment Area)" onclick="document.getElementById('comment-box-<?= $post['id'] ?>').style.display='block'; document.querySelector('#comment-box-<?= $post['id'] ?> input[name=comment_content]').focus();"><i class="far fa-comment-alt"></i> Comment</button>
                             <!-- BLIND XSS TRIGGER -->
                             <form method="POST" action="../index.php?page=contact" style="display:inline;">
                                 <input type="hidden" name="reporter_name" value="<?= $_SESSION['user'] ?>">
@@ -216,6 +228,9 @@ $search_query = isset($_GET['q']) ? $_GET['q'] : '';
                                     </div>
                                     <div style="color:var(--text); margin-top:5px; font-size:0.9rem; word-break: break-word;">
                                         <?= xss_filter($comment['content']) ?>
+                                    </div>
+                                    <div style="margin-top:8px;">
+                                        <button class="post-btn" style="font-size:0.75rem; padding:0; display:inline-block;" onclick="document.getElementById('comment-box-<?= $post['id'] ?>').style.display='block'; const inp = document.querySelector('#comment-box-<?= $post['id'] ?> input[name=comment_content]'); inp.value='@<?= xss_filter($comment['author']) ?> '; inp.focus();"><i class="fas fa-reply"></i> Balas</button>
                                     </div>
                                 </div>
                             </div>

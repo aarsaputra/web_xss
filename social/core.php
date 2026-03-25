@@ -2,6 +2,15 @@
 session_start();
 
 // Inherit security level, default to Low
+if (isset($_GET['set_level'])) {
+    $allowed_levels = ['Low', 'Medium', 'High'];
+    if (in_array($_GET['set_level'], $allowed_levels)) {
+        $_SESSION['sec_level'] = $_GET['set_level'];
+        header("Location: index.php");
+        exit;
+    }
+}
+
 if (!isset($_SESSION['sec_level'])) { 
     $_SESSION['sec_level'] = 'Low'; 
 }
