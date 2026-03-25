@@ -75,3 +75,11 @@ To view the results of your cookie exfiltration attacks, visit the **Capture Das
 
 ## 👤 Author
 - **aarsaputra** - *Initial Work & Design*
+
+## 🛡️ Phase 2: Security Levels
+The lab now features selectable Security Levels (LOW, MEDIUM, HIGH) to simulate Web Application Firewalls (WAF) and proper output sanitization.
+- **Low**: No filters. 100% vulnerable.
+- **Medium**: Blocks common tags like `<script>`. Requires bypass techniques.
+- **High**: Strict HTML entity encoding. Completely secure.
+
+*Refer to  for specific bypass payloads.*

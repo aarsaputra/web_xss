@@ -4,7 +4,63 @@ session_start();
 // --- CONFIGURATION ---
 $db_file = 'database_komen.json';
 if (!file_exists($db_file)) {
+    // Initialize with empty array and strict permissions if newly created
     file_put_contents($db_file, json_encode([]));
+    chmod($db_file, 0666);
+}
+
+// Security Level Management
+if (!isset($_SESSION['sec_level'])) {
+    $_SESSION['sec_level'] = 'Low';
+}
+
+if (isset($_GET['set_level'])) {
+    $allowed_levels = ['Low', 'Medium', 'High'];
+    if (in_array($_GET['set_level'], $allowed_levels)) {
+        $_SESSION['sec_level'] = $_GET['set_level'];
+        header("Location: index.php?page=" . (isset($_GET['page']) ? $_GET['page'] : 'home'));
+        exit;
+    }
+}
+
+// The Core XSS Filter Function
+function xss_filter($data) {
+    $level = $_SESSION['sec_level'];
+    
+    if ($level === 'Low') {
+        // No filter - 100% Vulnerable
+        return $data;
+    } 
+    elseif ($level === 'Medium') {
+        // Basic Blacklist: Strip <script> tags and javascript: protocol
+        // This can be bypassed with tags like <svg>, <img>, <details>
+        $data = preg_replace('/<script\b[^>]*>(.*?)<\/script>/is', "", $data);
+        $data = preg_replace('/javascript:/i', "blocked:", $data);
+        return $data;
+    } 
+    elseif ($level === 'High') {
+        // Strict Output Encoding
+        return htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
+    }
+    
+    return $data;
+}
+
+// Safe JSON Reader
+function read_db($file) {
+    if (!file_exists($file)) return [];
+    $data = file_get_contents($file);
+    return json_decode($data, true) ?: [];
+}
+
+// Safe JSON Writer with File Locking to prevent corruption during live demos
+function write_db($file, $data) {
+    $fp = fopen($file, 'w');
+    if (flock($fp, LOCK_EX)) {
+        fwrite($fp, json_encode($data));
+        flock($fp, LOCK_UN);
+    }
+    fclose($fp);
 }
 
 // --- AUTH LOGIC ---
@@ -47,8 +103,7 @@ if (isset($_POST['update_profile']) && isset($_SESSION['user'])) {
 
 // --- COMMENT LOGIC (STORED XSS) ---
 if (isset($_POST['comment'])) {
-    $current_data = json_decode(file_get_contents($db_file), true);
-    if (!is_array($current_data)) $current_data = [];
+    $current_data = read_db($db_file);
 
     if (isset($_SESSION['user'])) {
         $sender = $_SESSION['user'];
@@ -70,7 +125,7 @@ if (isset($_POST['comment'])) {
     ];
 
     array_unshift($current_data, $new_comment);
-    file_put_contents($db_file, json_encode($current_data));
+    write_db($db_file, $current_data);
 }
 
 if (isset($_GET['delete_id'])) {
@@ -83,13 +138,13 @@ if (isset($_GET['delete_id'])) {
         }
         $new_data[] = $row;
     }
-    file_put_contents($db_file, json_encode($new_data));
+    write_db($db_file, $new_data);
     header("Location: index.php?page=stored");
     exit;
 }
 
 if (isset($_GET['action']) && $_GET['action'] == 'reset' && isset($_SESSION['role']) && $_SESSION['role'] == 'admin') {
-    file_put_contents($db_file, json_encode([]));
+    write_db($db_file, []);
     header("Location: index.php?page=stored");
     exit;
 }
@@ -114,6 +169,16 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
             <a href="?page=reflected" class="nav-link <?= $page == 'reflected' ? 'active' : '' ?>">Reflected</a>
             <a href="?page=stored" class="nav-link <?= $page == 'stored' ? 'active' : '' ?>">Stored</a>
             <a href="?page=dom" class="nav-link <?= $page == 'dom' ? 'active' : '' ?>">DOM</a>
+            
+            <div class="nav-link dropdown">
+                Level: <span class="neon-text"><?= $_SESSION['sec_level'] ?></span>
+                <div class="dropdown-content">
+                    <a href="?set_level=Low&page=<?= $page ?>" class="level-low">Low</a>
+                    <a href="?set_level=Medium&page=<?= $page ?>" class="level-med">Medium</a>
+                    <a href="?set_level=High&page=<?= $page ?>" class="level-high">High</a>
+                </div>
+            </div>
+
             <?php if(isset($_SESSION['user'])): ?>
                 <a href="?page=dashboard" class="nav-link <?= $page == 'dashboard' ? 'active' : '' ?>">Dashboard</a>
                 <a href="?action=logout" class="nav-link logout-btn">Logout</a>
@@ -176,13 +241,22 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
 
                             <?php if(isset($_GET['q'])): ?>
                                 <div class="alert-box">
-                                    <p>Hasil pencarian untuk: <strong class="neon-text"><?php echo $_GET['q']; ?></strong></p>
+                                    <p>Hasil pencarian untuk: <strong class="neon-text"><?php echo xss_filter($_GET['q']); ?></strong></p>
                                 </div>
+                                
                                 <div class="presenter-mode">
-                                    <strong>📖 Penjelasan:</strong>
-                                    <p>Input <code>q</code> langsung dicetak ke dalam tag <code>&lt;strong&gt;</code> tanpa <code>htmlspecialchars()</code>.</p>
-                                    <strong>🔓 Payload:</strong>
-                                    <div class="debug-info">&lt;script&gt;alert('Reflected XSS!')&lt;/script&gt;</div>
+                                    <?php if($_SESSION['sec_level'] == 'Low'): ?>
+                                        <strong>📖 Catatan Presenter (Level LOW):</strong>
+                                        <p>Input tidak disaring sama sekali. Payload standar akan berhasil dieksekusi.</p>
+                                        <div class="debug-info">&lt;script&gt;alert('Reflected XSS!')&lt;/script&gt;</div>
+                                    <?php elseif($_SESSION['sec_level'] == 'Medium'): ?>
+                                        <strong>📖 Catatan Presenter (Level MEDIUM):</strong>
+                                        <p>Penyaring mencoba menghapus tag <code>&lt;script&gt;</code>. Tunjukkan bypass dengan tag HTML yang bisa memicu event (menggunakan atribut onerror/onload).</p>
+                                        <div class="debug-info">&lt;img src=x onerror=alert('Bypass_Reflected!')&gt;</div>
+                                    <?php else: ?>
+                                        <strong>📖 Catatan Presenter (Level HIGH):</strong>
+                                        <p>Fungsi `htmlspecialchars()` membuat input menjadi statis dan aman. Demonstrasikan bahwa payload di atas kini dirender sebagai teks biasa.</p>
+                                    <?php endif; ?>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -206,7 +280,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                             <h3>Feed Diskusi:</h3>
                             <div class="comments-list">
                                 <?php 
-                                $comments = json_decode(file_get_contents($db_file), true) ?? [];
+                                $comments = read_db($db_file);
                                 foreach($comments as $c): 
                                     $badge = 'badge-guest';
                                     if($c['role'] == 'admin') $badge = 'badge-admin';
@@ -216,7 +290,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                                         <div class="comment-header">
                                             <span>
                                                 <span class="badge <?= $badge ?>"><?= strtoupper($c['role']) ?></span>
-                                                <b class="neon-text"><?= $c['name'] ?></b>
+                                                <b class="neon-text"><?= xss_filter($c['name']) ?></b>
                                             </span>
                                             <span>
                                                 <?= $c['time'] ?>
@@ -226,17 +300,25 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                                             </span>
                                         </div>
                                         <div class="comment-body">
-                                            <?= $c['message'] ?>
+                                            <?= xss_filter($c['message']) ?>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
                             
                             <div class="presenter-mode">
-                                <strong>📖 Penjelasan:</strong>
-                                <p>Input <code>comment</code> disimpan ke JSON dan dirender langsung. Ini adalah jenis XSS yang paling berbahaya.</p>
-                                <strong>🔓 Payload:</strong>
-                                <div class="debug-info">&lt;img src=x onerror="alert(document.cookie)"&gt;</div>
+                                <?php if($_SESSION['sec_level'] == 'Low'): ?>
+                                    <strong>📖 Catatan Presenter (Level LOW):</strong>
+                                    <p>Input disimpan ke JSON dan dirender langsung tanpa proteksi.</p>
+                                    <div class="debug-info">&lt;script&gt;alert('Stored_XSS')&lt;/script&gt;</div>
+                                <?php elseif($_SESSION['sec_level'] == 'Medium'): ?>
+                                    <strong>📖 Catatan Presenter (Level MEDIUM):</strong>
+                                    <p>Filter memblokir <code>&lt;script&gt;</code>. Coba payload ini untuk menyimpan celah (Bypass via event handler):</p>
+                                    <div class="debug-info">&lt;svg onload="alert('Bypass_Stored')"&gt;</div>
+                                <?php else: ?>
+                                    <strong>📖 Catatan Presenter (Level HIGH):</strong>
+                                    <p>Output sudah dienkode dengan entitas HTML sehingga aman sepenuhnya.</p>
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php break;
