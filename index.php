@@ -9,6 +9,12 @@ if (!file_exists($db_file)) {
     chmod($db_file, 0666);
 }
 
+$report_file = 'database_reports.json';
+if (!file_exists($report_file)) {
+    file_put_contents($report_file, json_encode([]));
+    chmod($report_file, 0666);
+}
+
 // Security Level Management
 if (!isset($_SESSION['sec_level'])) {
     $_SESSION['sec_level'] = 'Low';
@@ -128,6 +134,22 @@ if (isset($_POST['comment'])) {
     write_db($db_file, $current_data);
 }
 
+// --- REPORT LOGIC (BLIND XSS) ---
+if (isset($_POST['report_bug'])) {
+    $current_reports = read_db($report_file);
+    
+    $new_report = [
+        'id' => uniqid(),
+        'sender' => isset($_POST['reporter_name']) && $_POST['reporter_name'] ? $_POST['reporter_name'] : 'Anonymous',
+        'message' => $_POST['report_message'],
+        'time' => date("H:i")
+    ];
+
+    array_unshift($current_reports, $new_report);
+    write_db($report_file, $current_reports);
+    $msg_report = "Laporan berhasil dikirim ke Admin Support!";
+}
+
 if (isset($_GET['delete_id'])) {
     $id_to_delete = $_GET['delete_id'];
     $current_data = json_decode(file_get_contents($db_file), true);
@@ -145,6 +167,7 @@ if (isset($_GET['delete_id'])) {
 
 if (isset($_GET['action']) && $_GET['action'] == 'reset' && isset($_SESSION['role']) && $_SESSION['role'] == 'admin') {
     write_db($db_file, []);
+    write_db($report_file, []);
     header("Location: index.php?page=stored");
     exit;
 }
@@ -208,6 +231,9 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                     </li>
                     <li onclick="location.href='?page=dom'" class="sidebar-item <?= $page == 'dom' ? 'active' : '' ?>">
                         <i class="fas fa-code"></i> DOM-based XSS
+                    </li>
+                    <li onclick="location.href='?page=contact'" class="sidebar-item <?= $page == 'contact' ? 'active' : '' ?>">
+                        <i class="fas fa-envelope-open-text"></i> Blind XSS
                     </li>
                     <li onclick="location.href='captured.php'" class="sidebar-item">
                         <i class="fas fa-terminal"></i> Cookie Stealer
@@ -360,6 +386,38 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                         </div>
                     <?php break;
 
+                    case 'contact': ?>
+                        <div class="card glass">
+                            <h2><i class="fas fa-envelope-open-text"></i> Contact Support (Blind XSS Target)</h2>
+                            <p>Laporkan masalah atau bug secara anonim. Laporan ini hanya bisa dilihat secara rahasia oleh <strong>Administrator</strong> di Dashboard mereka.</p>
+                            
+                            <?php if(isset($msg_report)): ?>
+                                <p class="success-text" style="color:#00f5d4;"><?= $msg_report ?></p>
+                            <?php endif; ?>
+
+                            <form method="POST" class="post-form glass">
+                                <input type="text" name="reporter_name" placeholder="Nama / Anonim">
+                                <textarea name="report_message" rows="4" placeholder="Jelaskan detail bug... (Insert Payload Here)"></textarea>
+                                <button type="submit" name="report_bug" class="btn btn-primary">Submit Report</button>
+                            </form>
+
+                            <div class="presenter-mode">
+                                <?php if($_SESSION['sec_level'] == 'Low'): ?>
+                                    <strong>📖 Catatan Presenter (Level LOW):</strong>
+                                    <p>Serangan Blind XSS tidak meledak di halaman ini. Anda harus mensimulasikan korban dengan masuk sebagai Administrator dan membuka Dashboard untuk melihat eksekusinya yang tersembunyi.</p>
+                                    <div class="debug-info">&lt;script&gt;fetch('stealer.php?c=Blind_XSS_Success')&lt;/script&gt;</div>
+                                <?php elseif($_SESSION['sec_level'] == 'Medium'): ?>
+                                    <strong>📖 Catatan Presenter (Level MEDIUM):</strong>
+                                    <p>Sama seperti Stored XSS, bypass proteksi dengan menggunakan HTML tag yang mengeksekusi fetch secara pasif di Dashboard Admin.</p>
+                                    <div class="debug-info">&lt;img src=x onerror="fetch('stealer.php?c=Bypass_Blind')"&gt;</div>
+                                <?php else: ?>
+                                    <strong>📖 Catatan Presenter (Level HIGH):</strong>
+                                    <p>Sistem aman. Laporan yang masuk akan dirender sebagai teks murni di panel Administrator.</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php break;
+
                     case 'login': ?>
                         <div class="card glass login-card">
                             <h2 style="text-align: center;">Member Login</h2>
@@ -386,10 +444,32 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'home';
                             <p>Hello, <strong class="neon-text"><?= $_SESSION['user'] ?></strong>. Access granted.</p>
                             
                             <?php if($_SESSION['role'] == 'admin'): ?>
-                                <div class="admin-panel glass">
-                                    <h4><i class="fas fa-shield-alt"></i> Admin Terminal</h4>
+                                <div class="admin-panel glass" style="padding:1rem; border:1px solid var(--accent); border-radius:8px;">
+                                    <h4><i class="fas fa-shield-alt"></i> Admin Privileges</h4>
                                     <p>Secret Token: <code>SUPER_SECRET_ADMIN_KEY_12345</code></p>
-                                    <a href="?action=reset" class="btn btn-danger">Emergency Wipe Forum</a>
+                                    <a href="?action=reset" class="btn btn-danger btn-sm">Emergency Wipe Database</a>
+                                    
+                                    <hr class="divider" style="margin:2rem 0;">
+                                    <h4 style="color:var(--accent);"><i class="fas fa-inbox"></i> Support Reports (Blind XSS Target Area)</h4>
+                                    <p>Log pelaporan masalah dari publik. <strong>JIKA ADA PAYLOAD BERBAHAYA, AKAN MELEDAK DI SINI.</strong></p>
+                                    
+                                    <div class="reports-list" style="max-height: 400px; overflow-y: auto;">
+                                        <?php 
+                                        $reports = read_db($report_file);
+                                        if(empty($reports)) echo "<p style='color:var(--text-muted);'>Tidak ada laporan baru.</p>";
+                                        foreach($reports as $r): 
+                                        ?>
+                                            <div class="comment" style="background:rgba(255,0,85,0.05); border-left: 3px solid var(--accent); margin-bottom:1rem; padding:1rem;">
+                                                <div class="comment-header" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">
+                                                    <b>Reporter: <?= xss_filter($r['sender']) ?></b> | Waktu: <?= $r['time'] ?>
+                                                </div>
+                                                <div class="comment-body" style="color:#fff;">
+                                                    <!-- BLIND XSS EXECUTION HAPPENS HERE -->
+                                                    <?= xss_filter($r['message']) ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
                                 </div>
                             <?php endif; ?>
 
